@@ -60,6 +60,7 @@ y <- ifelse(x1^2 + x2^2 > 8^2, "Yes", "No")
 
 dat <- data.frame(x1, x2, y)
 
+dat$y = as.factor(dat$y)
 
 plot(dat$x1, dat$x2, pch = c(3, 16)[dat$y]) # str(dat$y)?
 
