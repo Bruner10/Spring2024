@@ -1,0 +1,364 @@
+---
+title: "HW1"
+author: "Jonathan Bruner"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Question 1:
+
+**The following table contains a training set of five observations with two quantitative predictor variables and one categorical response variable that will be used for classification with** ***k*****-nearest neighbors:**
+
+| $X_1$ | $X_2$ | $Y$ |
+|:-----:|:-----:|:---:|
+|   4   |   4   | Yes |
+|   1   |   8   | No  |
+|   7   |   5   | No  |
+|   8   |   8   | Yes |
+|   5   |   9   | Yes |
+
+**The new test observation that we want to classify has $X_1=8$, $X_2=6$.**
+
+#### a. Calculate the distance from each of the five training observations to the test point.
+
+```{r}
+dat1 = matrix(c(4,1,7,8,5,8,4,8,5,8,9,6), nrow=6, ncol=2)
+
+dist(dat1)
+```
+
+<br>
+
+#### b. Which three of the training observations are closest to the test point?
+
+Observations 3, 4, and 5 are the three closest observations to the test point.
+
+<br>
+
+#### c. Using your answer in part (b), what is the predicted value of $Y$ for the test point?
+
+The predicted value of $Y$ is "Yes".
+
+<br><br>
+
+------------------------------------------------------------------------
+
+## Question 2:
+
+**This question uses the** ***vgsales.csv*** **file found on D2L. The data set contains observations for video game sales and was derived from <https://www.kaggle.com/gregorut/videogamesales>.**
+
+```{r, echo=FALSE, message=FALSE, error=FALSE, warning=FALSE}
+library(readr)
+dat2 = read_csv("vgsales.csv")
+```
+
+#### a. How many total observations are in the data set? How many of the games are in the sports genre?
+
+There are `r dim(dat2)[1]` observations in the data set.
+
+There are `r dim(dat2[dat2$Genre == 'Sports',])[1]` games that are of the "Sports" genre.
+
+<br>
+
+#### b. Find the minimum, maximum, mean, median, and variance of the North American sales variable.
+
+|        Minimum         |        Maximum         |          Mean           |          Median           |        Variance        |
+|:-------------:|:-------------:|:-------------:|:-------------:|:-------------:|
+| `r min(dat2$NA_Sales)` | `r max(dat2$NA_Sales)` | `r mean(dat2$NA_Sales)` | `r median(dat2$NA_Sales)` | `r var(dat2$NA_Sales)` |
+
+<br>
+
+#### c. Create a histogram of the natural logarithm of the North American sales variable.
+
+```{r}
+hist(log(dat2$NA_Sales))
+```
+
+<br>
+
+#### d. Create pairwise scatterplots of the three sales variables and comment on the results.
+
+```{r}
+pairs(dat2[,5:7], lower.panel = NULL)
+```
+
+<br><br>
+
+------------------------------------------------------------------------
+
+## Question 3:
+
+**This question uses the** ***BP.csv*** **data found on D2L. It contains measurements from a medical study evaluating factors that influence blood pressure. Variables included are sex (coded numerically with 1 = male and 0 = female), age in years, height in inches, weight in pounds, race (coded numerically with 2 = Asian, 3 = Black, 4 = Hispanic, and 5 = Caucasian), blood pressure with a cold compress, blood pressure while performing mental arithmetic, resting blood pressure, and a family history of hypertension indicator (1 = yes and 0 = no).**
+
+```{r, echo=FALSE, message=FALSE}
+dat3 = read_csv("BP.csv")
+dat3$sex = as.factor(dat3$sex)
+dat3$race = as.factor(dat3$race)
+dat3$hyp = as.factor(dat3$hyp)
+```
+
+#### a. Fit a multiple linear regression model to predict resting blood pressure using age, height, weight, and race. What is the resulting regression equation?
+
+```{r}
+fit1 = lm(bp ~ age + height + weight + race, data=dat3)
+```
+
+$\hat{Y}$ = `r summary(fit1)$coefficients['age','Estimate']` \* $X_1$ + `r summary(fit1)$coefficients['height','Estimate']` \* $X_2$ + `r summary(fit1)$coefficients['weight','Estimate']` \* $X_3$ + `r summary(fit1)$coefficients['race3','Estimate']` \* $X_4$ + `r summary(fit1)$coefficients['race4','Estimate']` \* $X_5$ + `r summary(fit1)$coefficients['race5','Estimate']` \* $X_6$ + `r summary(fit1)$coefficients['(Intercept)','Estimate']`
+
+| Variable  |          Description          |
+|:---------:|:-----------------------------:|
+| $\hat{Y}$ |    Resting Blood Pressure     |
+|   $X_1$   |          Age (years)          |
+|   $X_2$   |        Height (inches)        |
+|   $X_3$   |        Weight (pounds)        |
+|   $X_4$   | 1 when Race = 3 : 0 otherwise |
+|   $X_5$   | 1 when Race = 4 : 0 otherwise |
+|   $X_6$   | 1 when Race = 5 : 0 otherwise |
+
+<br>
+
+#### b. What is your interpretation of the regression coefficient for height?
+
+If we assume all other variables remain constant, for every unit increase in height the estimated resting blood pressure will change by `r summary(fit1)$coefficients['height','Estimate']`.
+
+<br>
+
+#### c. Which of the variables are significant at $\alpha = 0.1$?
+
+| Variable |                       P-Value                       |                 Interpretation                  |
+|:------------------:|:----------------:|:--------------------------------:|
+|   Age    |  `r summary(fit1)$coefficients['age','Pr(>|t|)']`   | $p>\alpha=0.1\Rightarrow\text{Not Significant}$ |
+|  Height  | `r summary(fit1)$coefficients['height','Pr(>|t|)']` |   $p<\alpha=0.1\Rightarrow\text{Significant}$   |
+|  Weight  | `r summary(fit1)$coefficients['weight','Pr(>|t|)']` |   $p<\alpha=0.1\Rightarrow\text{Significant}$   |
+|  Race3   | `r summary(fit1)$coefficients['race3','Pr(>|t|)']`  | $p>\alpha=0.1\Rightarrow\text{Not Significant}$ |
+|  Race4   | `r summary(fit1)$coefficients['race4','Pr(>|t|)']`  | $p>\alpha=0.1\Rightarrow\text{Not Significant}$ |
+|  Race5   | `r summary(fit1)$coefficients['race5','Pr(>|t|)']`  | $p>\alpha=0.1\Rightarrow\text{Not Significant}$ |
+
+<br>
+
+#### d. How well does this model fit the data? Provide a relevant statistic and interpretation.
+
+This models does not fit well since it only accounts for `r summary(fit1)$adj.r*100`% of the variance in *bp*.
+
+<br>
+
+#### e. Predict the resting blood pressure for a 20-year-old Hispanic person who is 70 inches tall and weighs 160 pounds.
+
+```{r}
+newdat1 = data.frame('age'=20, 'race'='4', 'height'=70, 'weight'=160)
+pred1 = predict(fit1, newdata = newdat1)
+```
+
+Our prediction for resting blood pressure for this patient is `r pred1`.
+
+<br>
+
+#### f. Fit a new multiple linear regression model that also includes an interaction between age and weight. Does this new model improve fit? Is the interaction term significant?
+
+```{r}
+fit2 = lm(bp ~ age * weight + height + race, data=dat3)
+```
+
+No, this model only increases the Statistic of Determination by `r summary(fit1)$adj.r - summary(fit2)$adj.r`. 
+
+With a $\text{p-value}=0.0966<\alpha=0.1\Rightarrow$ we can say that the interaction is significant.
+
+<br>
+
+#### g. Investigate an additional multiple regression model to predict resting blood pressure that includes at least one transforation of the variables (such as $log(X)$, $\sqrt{X}$, $X^2$) and comment on your results. You are free to use any of the variables in the data set. Can you improve upon the results from part (a)?
+
+```{r}
+fit3 = lm(log(bp) ~ height + sex + mental_arith, data=dat3)
+```
+
+I came up with the following model:
+
+$log(\hat{Y})$ = `r summary(fit3)$coefficients['height','Estimate']` \* $X_1$ + `r summary(fit3)$coefficients['sex1','Estimate']` \* $X_2$ + `r summary(fit3)$coefficients['mental_arith','Estimate']` \* $X_3$
+
+| Variable  |          Description                        |
+|:---------:|:-------------------------------------------:|
+| $\hat{Y}$ |   Resting Blood Pressure                    |
+|   $X_1$   |   Height (inches)                           |
+|   $X_2$   |   1 when sex = 1 : 0 otherwise              |
+|   $X_3$   |   bp while performing mental arithmetic     |
+
+With this model I was able to raise the $R_a^2$ to `r summary(fit2)$adj.r`, which accounts for `r summary(fit2)$adj.r*100`% of the variation in *bp*.
+
+<br><br>
+
+------------------------------------------------------------------------
+
+## Question 4: Chapter 2 Exercise 6
+
+**Describe the differences between a parametric and non-parametric statistical learning approach. What are the advantages of a parametric approach to regression or classification (as opposed to a non-parametric approach)? What are its disadvantages?**
+
+The main difference between parametric and non-parametric approaches is that parametric approaches make an assumption about the form of the model, while non-parametric approaches try to "best" approximate the data without being too "wiggly". Some of the advantages of using parametric is especially if we already know the form of the real-world model or at least a close approximation, or if we want to test a specific form to the data. Some of the disadvantages is that it is too rigid and won't easily be able to fit to data without testing many different forms; while with a non-parametric approach it is much more flexible and can find an approximation to a higher order problem without as much trial-and-error.
+
+<br><br>
+
+------------------------------------------------------------------------
+
+## Question 5: Chapter 3 Exercise 13
+
+**In this exercise you will create some simulated data and will fit simple linear regression models to it. Make sure to use** ***set.seed()*** **prior to starting part (a) to ensure consistent results.**
+
+```{r, echo=FALSE, message=FALSE}
+set.seed(20500950)
+```
+
+#### a. Using the **rnorm()** function, create a vector, *x*, containing 100 observations drawn from a N(0,1) distribution. This represents a feature, $X$.
+
+```{r}
+x = rnorm(100,0,1)
+```
+
+<br>
+
+#### b. Using the **rnorm()** function, create a vector, *eps*, containing 100 observations drawn from a N(0,0.25) distribution -- a normal distribution with mean zero and variance 0.25.
+
+```{r}
+eps = rnorm(100,0,0.25)
+```
+
+<br>
+
+#### c. Using *x* and *eps*, generate a vector *y* according to the model $$Y=-1+0.5X+\epsilon$$. What is the length of the vector y? What are the values of $\beta_0$ and $\beta_1$ in this linear model?
+
+```{r}
+y = -1+0.5*x+eps
+```
+
+Vector *y* has 100 entries in it. $\beta_0=-1$ and $\beta_1=0.5$.
+
+<br>
+
+#### d. Create a scatterplot displaying the relationship between *x* and *y*. Comment on what you observe.
+
+```{r}
+plot(x,y)
+```
+
+<br>
+
+#### e. Fit a least squares linear model to predict *y* using *x*. Comment on the model obtained. How do $\hat{\beta_0}$ and $\hat{\beta_1}$ compare to $\beta_0$ and $\beta_1$?
+
+```{r}
+fit5 = lm(y ~ x)
+```
+
+| $\beta_0$ |                     $\hat{\beta_0}$                      |     | $\beta_1$ |                $\hat{\beta_1}$                 |
+|:-------------:|:-------------:|:-------------:|:-------------:|:-------------:|
+|    -1     | `r summary(fit5)$coefficients['(Intercept)','Estimate']` |     |    0.5    | `r summary(fit5)$coefficients['x','Estimate']` |
+
+<br>
+
+#### f. Display the least squares line on the scatterplot obtained in (d). Draw the population regression line on the plot, in a different color. Use the **legend()** command to create an appropriate legend.
+
+```{r}
+plot(x, y, main=paste('MODEL: y=',summary(fit5)$coefficients['x','Estimate'],'x + ',summary(fit5)$coefficients['(Intercept)','Estimate']))
+abline(
+  a = summary(fit5)$coefficients['(Intercept)', 'Estimate'],
+  b = summary(fit5)$coefficients['x', 'Estimate'],
+  col = 'red')
+abline(-1, 0.5, col='blue')
+legend('topleft', legend = c('Given Model', 'Linear Regression'), col = c('blue', 'red'), lty = 1)
+```
+
+<br>
+
+#### g. Now fit a polynomial regression model that predicts *y* using *x* and $x^2$. Is there evidence that the quadratic term improves the model fit? Explain your answer.
+
+```{r}
+fit5.2 = lm(y ~ poly(x, degree=2, raw=TRUE))
+```
+
+I do not believe there is evidence to say the polynomial model improves the fit. The Statistic of Determination is about the same, actually slightly worse. However, it does appear in this model that the polynomial is statistically significant.
+
+<br>
+
+#### h. Repeat (a)-(f) after modifying the data generation process in such a way that there is **less** noise in the data. The model (3.39) should remain the same. You can do this by decreasing the variance of the normal distribution used to generate the error term $\epsilon$ in (b). Describe your results.
+
+```{r}
+x = rnorm(100,0,1)
+eps = rnorm(100,0,0.01)
+
+y = -1+0.5*x+eps
+
+fit5.3 = lm(y ~ x)
+
+plot(x, y, main=paste('MODEL: y=',summary(fit5.3)$coefficients['x','Estimate'],'x + ',summary(fit5.3)$coefficients['(Intercept)','Estimate']))
+abline(
+  a = summary(fit5.3)$coefficients['(Intercept)', 'Estimate'],
+  b = summary(fit5.3)$coefficients['x', 'Estimate'],
+  col = 'red')
+abline(-1, 0.5, col='blue')
+legend('topleft', legend = c('Given Model', 'Linear Regression'), col = c('blue', 'red'), lty = 1)
+```
+
+As you can see from the Fitted Model coefficients they closely resemble both the known model and the previous random data set. The difference is the amount of points scattered away from the line. The raw data follows this line much better.
+
+<br>
+
+#### i. Repeat (a)-(f) after modifying the data generation process in such a way that there is **more** noise in the data. The model (3.39) should remain the same. You can do this by increasing the variance of the normal distribution used to generate the error term $\epsilon$ in (b). Describe your results.
+
+```{r}
+x = rnorm(100,0,1)
+eps = rnorm(100,0,0.5)
+
+y = -1+0.5*x+eps
+
+fit5.4 = lm(y ~ x)
+
+plot(x, y, main=paste('MODEL: y=',summary(fit5.4)$coefficients['x','Estimate'],'x + ',summary(fit5.4)$coefficients['(Intercept)','Estimate']))
+abline(
+  a = summary(fit5.4)$coefficients['(Intercept)', 'Estimate'],
+  b = summary(fit5.4)$coefficients['x', 'Estimate'],
+  col = 'red')
+abline(-1, 0.5, col='blue')
+legend('topleft', legend = c('Given Model', 'Linear Regression'), col = c('blue', 'red'), lty = 1)
+```
+
+As you can see from the Fitted Model coefficients they closely resemble both the known model and the previous 2 random data set. The difference is the points are much more scattered away from the line. The raw data doesn't follow the line very well.
+
+<br>
+
+#### j. What are the confidence intervals for $\beta_0$ and $\beta_1$ based on the original data set, the noiser data set, and the less noisy data set? Comment on your results.
+
+```{r}
+a.b0 = confint(fit5,'x',level=0.95)
+a.b1 = confint(fit5, '(Intercept)',level=0.95)
+h.b0 = confint(fit5.3,'x',level=0.95)
+h.b1 = confint(fit5.3, '(Intercept)',level=0.95)
+i.b0 = confint(fit5.4,'x',level=0.95)
+i.b1 = confint(fit5.4, '(Intercept)',level=0.95)
+```
+
+**95% Confidence Interval**
+
+**Model (a)**
+
+- $\beta_0$: (`r a.b0[1]`, `r a.b0[2]`)
+
+- $\beta_1$: (`r a.b1[1]`, `r a.b1[2]`)
+
+**Model (h)**: decreasing variance
+
+- $\beta_0$: (`r h.b0[1]`, `r h.b0[2]`)
+
+- $\beta_1$: (`r h.b1[1]`, `r h.b1[2]`)
+
+**Model (i)**: increasing variance
+
+- $\beta_0$: (`r i.b0[1]`, `r i.b0[2]`)
+
+- $\beta_1$: (`r i.b1[1]`, `r i.b1[2]`)
+
+As the variance decreases in Model (h) the mean stays about the same, however the 95% confidence interval shrinks down to a smaller interval. When the variance in Model (i) increases again the mean stays about the same, but the 95% confidence interval grows to a larger interval.
+
+<br><br><br>
+
+***
