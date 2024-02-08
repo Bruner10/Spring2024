@@ -21,7 +21,7 @@ par(mfrow = c(1,1))
 
 
 # Multiple linear
-wine <- read.csv(file = "wine.csv")   #Check your file path
+wine <- read.csv(file = "Data/wine.csv")   #Check your file path
 
 plot(wine)
 head(wine)
