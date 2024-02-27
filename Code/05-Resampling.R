@@ -70,3 +70,52 @@ mean(bstrap)
 sd(bstrap)
 
 # Note: more functionality in 'boot' package
+
+
+leukemia = read.csv(file = 'Data/leukemia.csv', stringsAsFactors = TRUE)
+
+library(class)
+
+n = nrow(leukemia)
+
+out3 = NULL
+out5 = NULL
+out7 = NULL
+
+for (i in 1:n){
+  
+  out3[i] = knn(leukemia[-i,-ncol(leukemia)], leukemia[i,-ncol(leukemia)], leukemia[i,ncol(leukemia)], k=3)
+  out5[i] = knn(leukemia[-i,-ncol(leukemia)], leukemia[i,-ncol(leukemia)], leukemia[i,ncol(leukemia)], k=5)
+  out7[i] = knn(leukemia[-i,-ncol(leukemia)], leukemia[i,-ncol(leukemia)], leukemia[i,ncol(leukemia)], k=7)
+  
+}
+
+pred3 = ifelse(out3 == 1, 'ALL', 'AML')
+pred5 = ifelse(out5 == 1, 'ALL', 'AML')
+pred7 = ifelse(out7 == 1, 'ALL', 'AML')
+
+table(leukemia$tumor, pred3)
+sum(leukemia$tumor == pred3) / n  # 0.7222222
+
+table(leukemia$tumor, pred5)
+sum(leukemia$tumor == pred5) / n  # 0.7638889
+
+table(leukemia$tumor, pred7)
+sum(leukemia$tumor == pred7) / n  # 0.75
+
+# Winner is k = 5
+
+# Caret example -------------------------
+
+library(caret)
+
+trControl = trainControl(method='LOOCV')
+
+fit = train(tumor ~.,
+            method = 'knn',
+            tuneGrid = expand.grid(k = c(3,5,7)),
+            trControl = trControl,
+            metric = 'Accuracy',
+            data = leukemia)
+
+fit
