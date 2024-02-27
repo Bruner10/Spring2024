@@ -1,0 +1,326 @@
+---
+title: "Homework 3"
+author: "Jonathan Bruner"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+<br><br>
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(scipen=999)
+
+library(ISLR2)
+```
+
+## Question 1: Chapter 5 Exercise 8
+
+We will now perform cross-validation on a simulated data set.
+
+#### (a) Generate a simulated data set as follows:
+```{r}
+set.seed(1)
+x = rnorm(100)
+y = x - 2 * x^2 + rnorm(100)
+
+dat1 = data.frame('X'=x, 'Y'=y)
+```
+#### In this data set, what is *n* and what is *p*? Write out the model used to generate the data in equation form.
+
+$n=100$
+
+$p=2$
+
+$y=x-2x^2+\epsilon$
+
+<br>
+
+#### (b) Create a scatterplot of $X$ against $Y$. Comment on what you find.
+
+```{r}
+plot(x,y)
+```
+
+This plot appears to be a positive quadratic function.
+
+<br>
+
+#### (c) Set a random seed, and the compute the LOOCV errors that result from fitting the following four models using least squares:
+
+i. $Y=\beta_0+\beta_1X+\epsilon$
+
+ii. $Y=\beta_0+\beta_1X+\beta_2X^2+\epsilon$
+
+iii. $Y=\beta_0+\beta_1X+\beta_2X^2+\beta_3X^3+\epsilon$
+
+iv. $Y=\beta_0+\beta_1X+\beta_2X^2+\beta_3X^3+\beta_4X^4+\epsilon$
+
+Note: you may find it helpful to use the **data.frame()** function to create a single data set containing both $X$ and $Y$
+
+```{r}
+LS_Loocv = function (data, seed){
+  
+  n = nrow(data)
+
+  results = data.frame('Model'=c('Model 1','Model 2','Model 3','Model 4'))
+  
+  set.seed(seed)
+  
+  # Cycle through the 4 models
+  for (i in 1:4){
+    # Initialize the error for each model
+    error = NULL
+  
+    # Cycle through all n observations leaving out one observation each
+    for (j in 1:n){
+      # Remove the jth observation
+      dat = data[-j,]
+    
+      # Fit a least squares model for the ith model
+      fit = lm(dat[,2] ~ poly(X, i, raw=TRUE), data=dat)
+    
+      # Predict a y-value using the fitted model and the removed observation
+      dat_pred = data.frame('X'=data[j,1])
+      pred = predict(fit, dat_pred)
+    
+      # Calculate the square error of each observation
+      error[j] = (data[j,2] - pred)^2
+    }
+  
+    # Log the final MSE for model i
+    results[i,'Error'] = sum(error) / n
+  }
+  
+  return(results)
+}
+
+results1 = LS_Loocv(dat1, 24)
+results1
+```
+
+<br>
+
+#### (d) Repeat (c) using another random seed, and report your results. Are your results the same as what you got in (c)? Why?
+
+```{r}
+results2 = LS_Loocv(dat1, 47)
+results2
+```
+
+Yes, the results are the same. Both of these use the same data created with the same seed. The reason the random seed doesn't affect the LOOCV results is there is only 1 way to remove 1 result n times. The randomness would begin to show effects once we start randomly grouping the data to do k-fold cross-validation.
+
+<br>
+
+#### (e) Which of the models in (c) had the smallest LOOCV error? Is this what you expected? Explain your answer.
+
+```{r}
+results1[which(results1$Error == min(results1$Error)),]
+```
+
+Yes, this is expected. The data was created with a quadratic function, so it follows that a quadratic function best approximates the data.
+
+<br>
+
+#### (f) Comment on the statistical significance of the coefficient estimates that results from fitting each of the models in (c) using least squares. Do these results agree with the conclusions drawn based on the cross-validation results?
+
+```{r}
+for (i in 1:4){
+  fit = lm(dat1[,2] ~ poly(X, i, raw=TRUE), data=dat1)
+  print(summary(fit))
+}
+```
+
+In all of these models $X$ and $X^2$ are the only predictors that are statistically significant. This agrees with our Cross-Validation results as well as our intuition and knowledge that the data was created with a quadratic function.
+
+<br><br>
+
+***
+
+## Question 2:
+
+This question uses the *newCredit.csv* data set on D2L. The data contains financial information for 300 individuals including credit limit, credit rating, number of credit cards, age, credit card balance, and a categorical indicator variable for high income. You will use this data to calculate the LOOCV error for predicting the binary high income variable $\underline{\text{without}}$ using the **cv.glm** function. Use the full data set $\underline{\text{without}}$ training and test splits.
+
+```{r}
+dat2 = read.csv('newCredit.csv')
+dat2$Income = as.factor(dat2$Income)
+```
+
+#### (a) Fit a logistic regression model to predict the income group using all but the first observation. Include all of the *independent* variables in the model.
+
+```{r}
+fit2 = glm(Income ~ ., data=dat2[-1,], family='binomial')
+summary(fit2)
+```
+
+<br>
+
+#### (b) Use the model from part (a) to predict the income group for the first observation.
+
+```{r}
+pred2 = predict(fit2, dat2[1,1:5], type='response')
+pred2
+```
+
+<br>
+
+#### (c) Write a for loop from *i*=1 to *n* that performs the following steps:
+
+i.  Fit a logistic regression model using all but the *i*th observation to predict income using the other variables.
+
+ii. Compute the posterior probability of the *i*th observation belonging to the high income group.
+
+iii. Use the probability from part ii to predict whether the *i*th observation is in the high income group.
+
+iv. Determine whether or not an error was made in the prediction for the *i*th observation. Save this result to access outside the loop.
+
+```{r}
+n = nrow(dat2)
+error = NULL
+
+for (i in 1:n){
+  # Fit the logistic model removing a single row
+  fit = glm(Income ~ ., data=dat2[-i,], family='binomial')
+  
+  # Make a prediction using the above model on the missing observation
+  pred = predict(fit, dat2[i,1:(ncol(dat2)-1)], type='response')
+  
+  # Turn the posterior probability into a group prediction
+  if (pred > 0.5){
+    prediction = '1'
+  } else {
+    prediction = '0'
+  }
+  
+  # Log whether the prediction was wrong
+  error[i] = prediction != dat2[i,ncol(dat2)]
+}
+```
+
+<br>
+
+#### (d) Use the information saved in part (c) iv to determine the LOOCV estimate of the test error.
+
+```{r}
+test_error = sum(error) / n
+test_error
+```
+
+<br><br>
+
+***
+
+## Question 3
+
+Two multiple regression models are fit using 5-fold cross-validation. The resulting MSE on each cross-validation set for each model is shown in the table below. Which model would you choose? Explain your choice.
+
+|        | Model1 |        |        | Model2 |        |
+|-------:|:------:|--------|-------:|:------:|--------|
+| CV Set |        | MSE    | CV Set |        | MSE    |
+|      1 |        | 33,415 |      1 |        | 26,666 |
+|      2 |        | 38,741 |      2 |        | 38,554 |
+|      3 |        | 32,112 |      3 |        | 39,662 |
+|      4 |        | 37,210 |      4 |        | 26,756 |
+|      5 |        | 29,501 |      5 |        | 30,303 |
+
+`r (sum(33415,38741,32112,37210,29501)/5)`
+```{r}
+model1 = (sum(33415,38741,32112,37210,29501)/5)
+
+model2 = (sum(26666,38554,39662,26756,30303)/5)
+```
+
+I would chose Model 2 since it's average MSE is `r model2` which is smaller than Model 1's which is `r model1`.
+
+<br><br>
+
+***
+
+## Question 4: Chapter 5 Exercise 7
+
+In Sections 5.3.2 and 5.3.3, we saw that the **cv.glm()** function can be used in order to compute the LOOCV test error estimate. Alternatively, one could compute those quantities using just the **glm** and **predict.glm()** functions, and a for loop. You will now take this approach in order to compute the LOOCV error for a simple logistic regression model on the ***Weekly*** data set. Recall that in the context of classification problems, the LOOCV error is given in (5.4).
+
+```{r}
+dat4 = Weekly
+head(dat4)
+```
+
+#### (a) Fit a logistic regression model that predicts *Direction* using *Lag1* and *Lag2*.
+
+```{r}
+fit4_1 = glm(Direction ~ Lag1 + Lag2, data=dat4, family='binomial')
+summary(fit4_1)
+```
+
+<br>
+
+#### (b) Fit a logistic regresstion model that predicts *Direction* using *Lag1* and *Lag2* using all but the first observation.
+
+```{r}
+fit4_2 = glm(Direction ~ Lag1 + Lag2, data=dat4[-1,], family='binomial')
+```
+
+<br>
+
+#### (c) Use the model from (b) to predict the direction of the first observation. You can do this by predicting that the first observation will go up if $P(\text{Direction} = \text{"Up"}|\text{Lag1, Lag2})>0.5$. Was this observation correctly classified?
+
+```{r}
+pred4 = predict(fit4_2, dat4[1,2:3], type='response')
+prediction4 = if (pred4>0.5){'Up'} else {'Down'}
+
+pred4
+```
+
+Prediction: `r prediction4`
+
+Observation: `r dat4[1,9]`
+
+This was an incorrect classification
+
+<br>
+
+#### (d) Write a for loop from *i*=1 to *i*=*n*, where *n* is the number of observations in the data set, that performs each of the following steps:
+
+i. Fit a logistic regression model using all but the *i*th observation to predict *Direction* using *Lag1* and *Lag2*.
+
+ii. Compute the posterior probability of the market moving up for the *i*th observation.
+
+iii. Use the posterior probability for the *i*th observation in order to predict whether or not the market moves up.
+
+iv. Determine whether or not an error was made in predicting the direction for the *i*th observation. If an error was made, then indicate this as a 1, and otherwise indicate it as a 0.
+
+```{r}
+dat4 = dat4[,c(2,3,9)]
+n = nrow(dat4)
+error = NULL
+
+for (i in 1:n){
+  # Fit the logistic model removing a single row
+  fit = glm(Direction ~ Lag1 + Lag2, data=dat4[-i,], family='binomial')
+  
+  # Make a prediction using the above model on the missing observation
+  pred = predict(fit, dat4[i,1:(ncol(dat4)-1)], type='response')
+  
+  # Turn the posterior probability into a group prediction
+  if (pred > 0.5){
+    prediction = 'Up'
+  } else {
+    prediction = 'Down'
+  }
+  
+  # Log whether the prediction was wrong
+  error[i] = prediction != dat4[i,ncol(dat4)]
+}
+```
+
+<br>
+
+#### (e) Take the average of the *n* numbers obtained in (d) iv in order to obtain the LOOCV estimate for the test error. Comment on the results.
+
+```{r}
+test_error = sum(error) / n
+test_error
+```
+
+<br><br>
+
