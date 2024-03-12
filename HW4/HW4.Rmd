@@ -1,0 +1,204 @@
+---
+title: "Homework 4"
+author: "Jonathan Bruner"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+
+library(glmnet)
+library(pls)
+library(leaps)
+```
+
+# Question 1: Chapter 6 Exercise 8 excluding parts (c) and (d)
+In this exercise, we will generate simulated data, and will then use this data to perform best subset selection.
+
+### (a)   Use the **rnorm()* function to generate a predictor $X$ of length $n=100$, as well as a noise vector $\epsilon$ of length $n=100$.
+
+```{r}
+n = 100
+X = rnorm(n)
+e = rnorm(n)
+```
+
+<br>
+
+### (b)   Generate a response vector $Y$ of length $n=100$ according to the model where $\beta_0$, $\beta_1$, $\beta_2$, and $\beta_3$ are constants of your choice. $$Y=\beta_0+\beta_1X+\beta_2X^2+\beta_3X^3+\epsilon$$
+
+```{r}
+b_0 = sample(seq(1,20,1),1)
+b_1 = sample(seq(1,20,1),1)
+b_2 = sample(seq(1,20,1),1)
+b_3 = sample(seq(1,20,1),1)
+
+Y = b_0 + b_1*X + b_2*X^2 + b_3*X^3 + e
+```
+
+<br>
+
+### (e)   Now fit a lasso model to the simulated data, again using $X$, $X^2$, $\dots X^{10}$ as predictors. Use cross-validation to select the optimal value of $\lambda$. Create plots of the cross-validation error as a function of $\lambda$. Report the resulting coefficient estimates, and discuss the results obtained.
+
+```{r}
+x = model.matrix(Y~poly(X, degree=10, raw=TRUE))[,-1]
+
+fit1_lasso = cv.glmnet(x, Y, alpha=1)
+lasso.min.lambda = fit1_lasso$lambda.min
+
+plot(fit1_lasso)
+
+coef(fit1_lasso)
+```
+
+Based on the results the optimal value of $\lambda$ creates a degree 3 polynomial which matches the polynomial used to create the response variable.
+
+<br>
+
+### (f)   Now generate a response vector $Y$ according to the model and perform best subset selection and the lasso. Discuss the results obtained. $$Y=\beta_0+\beta_7X^7+epsilon$$
+
+```{r}
+b_7 = sample(seq(1,20,1),1)
+
+Y = b_0 + b_7*X^7 + e
+
+fit1_bestsub = regsubsets(Y ~ x, data=NULL, nvmax=10)
+bestsub.min.rss = which.max(fit1_bestsub$rss)
+
+fit1_lasso = cv.glmnet(x, Y, alpha=1)
+lasso.min.lambda = fit1_lasso$lambda.min
+
+coef(fit1_bestsub, bestsub.min.rss)
+coef(fit1_lasso)
+```
+
+Both models used the intercept and the degree 7 polynomial term, this matches with the function that generated $Y$.
+
+***
+
+<br><br><br>
+
+# Question 2
+
+The *diabetes.csv* file on D2L contains concentrations of 131 metabolites measured from a sample of 198 patients with diabetes. One of the metabolites, creatinine, is an indicator of kidney function. This problem will investigate the problem of predicting creatinine using the values of the other 130 metabolites.
+
+```{r}
+dat2 = read.csv('diabetes.csv')
+```
+
+### (a)   Divide the data set into a training and test set. Your training set should consist of the first 150 observations while the test set is made up of the remaining observations.
+
+```{r}
+x_train = model.matrix(creatinine ~ ., dat2[1:150,])[,-1]
+x_test = model.matrix(creatinine ~ ., dat2[-1:-150,])[,-1]
+y_train = dat2[1:150, which(names(dat2) == 'creatinine')]
+y_test = dat2[-1:-150, which(names(dat2) == 'creatinine')]
+```
+
+<br>
+
+### (b)   Using the training data, fit a ridge regression model to predict creatinine using the other metabolites. Choose the value of lambda using cross-validation. What value of lambda is chosed?
+
+```{r}
+fit2.ridge = cv.glmnet(x_train,y_train, alpha=0)
+ridge.min.lambda = fit2.ridge$lambda.min
+```
+
+I have chosen the $\lambda$ value of `r ridge.min.lambda`
+
+<br>
+
+### (c)   Using the training data, fit a lasso regression model to predict creatinine using the other metabolites. Choose the value of lambda using cross-validation. What value of lambda is chosen?
+
+```{r}
+fit2.lasso = cv.glmnet(x_train,y_train, alpha=1)
+lasso.min.lambda = fit2.lasso$lambda.min
+```
+
+I have chosen the $\lambda$ value of `r lasso.min.lambda`
+
+<br>
+
+### (d)   How many of the regression coefficients from the lasso model in part (c) shrink to zero?
+
+```{r}
+coef(fit2.lasso, s=lasso.min.lambda)
+
+len = length(which(coef(fit2.lasso, s=lasso.min.lambda) == 0))
+```
+
+There are `r length(which(coef(fit2.lasso, s=lasso.min.lambda) == 0))` coefficients that shrunk to zero.
+
+<br>
+
+### (e)   Using the training data, fit a PCR model to predict creatinine using the other metabolites. Use cross-validation to choose the number of principal components. Explain your choice (there might be more than one correct answer here).
+
+```{r}
+fit2.pcr = pcr(y_train ~ x_train, scale=TRUE, validation='CV')
+summary(fit2.pcr)
+validationplot(fit2.pcr, val.type='MSEP')
+```
+
+I choose 7 principal components. The reason for this choice is according to the summary the MSE seems to level out around 6-7, as well as the percent of variance of Y explained. Using the plot I can see that around the 5-10 mark there should be an "elbow" in the data, which tells me the more principal components I add the less I decrease my MSE.
+
+<br>
+
+### (f)   Calculate the MSE on the test data for each of the three models.
+
+```{r}
+pred2.ridge = predict(fit2.ridge, s = ridge.min.lambda, newx = x_test)
+ridge.mse = mean((pred2.ridge - y_test)^2)
+
+pred2.lasso = predict(fit2.lasso, s = lasso.min.lambda, newx = x_test)
+lasso.mse = mean((pred2.lasso - y_test)^2)
+
+pred2.pcr = predict(fit2.pcr, x_test, ncomp = 7)
+pcr.mse = mean((pred2.pcr - y_test)^2)
+```
+
+Ridge Regression MSE: `r ridge.mse`
+
+Lasso Regression MSE: `r lasso.mse`
+
+Principal Component Regression MSE: `r pcr.mse`
+
+<br>
+
+### (g)   Which model performed the best? Explain your answer.
+
+From the MSE values above it appears the Lasso Regression performed best. 
+
+<br><br><br>
+
+# Question 3: Chapter 6 Exercise 2
+
+For parts (a) through (c), indicate which of *i*. through *iv*. is correct. Justify your answer.
+
+### (a)   The lasso, relative to least squares is:
+
+#### (*i*).   More flexible and hence will give improved prediction accuracy when its increase in bias is less than its decrease in variance.
+
+#### (*ii*).    More flexible and hence will give improved prediction accuracy when its increase in variance is less than its decrease in bias.
+
+#### (*iii*).   Less flexible and hence will give improved prediction accuracy when its increase in bias is less than its decrease in variance.
+
+#### (*iv*).    Less flexible and hence will give improved prediction accuracy when its increase in variance is less than its decrease in bias.
+
+For Lasso, relative to least squares, I believe ***iv*** is correct. Lasso is less flexible than least squares since we are forcing some constants to zero, hence getting rid of predictors. As we remove predictors we will be increasing our variance while we are decreasing our bias, and we will stop whenever our increase in variance jumps above our decrease in bias. This means that removing that next predictor greatly increases our variance, which tells us it is an important predictor.
+
+<br>
+
+### (b)   Repeat (a) for ridge regression relative to least squares.
+
+For Ridge, relative to least squares, I again believe ***iv*** is correct. As we increase $\lambda$ our estimates go to zero, hence making this model less flexible than least squares. Similarly to above as our bias decreases our variance increases.
+
+<br>
+
+### (c)   Repeat (a) for non-linear methods relative to least squares.
+
+For non-linear methods, relative to least squares, I believe ***i*** is correct. As we increase the degree of our model we increase our bias, but we can also decrease our variance. We should stop whenever our increase in bias is less than the decrease in variance. This is because if we add another high order term we greatly increase our bias, however our variance doesn't decrease very much which leads to over fitting.
+
+***
+
+<br><br>
