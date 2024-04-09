@@ -1,0 +1,249 @@
+---
+title: "Homework 5"
+author: "Jonathan Bruner"
+date: "`r Sys.Date()`"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(boot)
+library(splines)
+library(MASS)
+```
+
+
+# Question 1
+
+The file *FEV.csv* on D2L contains information related to forced expiratory volume (FEV) tests evaluating pulmonary capacity.
+
+### (a)   Create and interpret a plot of height versus FEV treating FEV as the dependent variable
+
+```{r fig.height=8, fig.width=10}
+dat1 = read.csv('FEV.csv')
+
+plot(dat1$height, dat1$fev, xlab='Height', ylab='FEV', pch=20)
+```
+
+<br>
+
+### (b)   Fit a natural cubic spline to predict FEV using height. Select the degrees of freedom using LOOCV choosing between values of 5, 6, 7, and 8. What value is chosen?
+
+```{r eval=FALSE}
+# Alternate Code
+cv.error = NA
+for (i in 1:4){
+  fit = glm(fev ~ ns(height, df=list[i]), data=dat1)
+  cv.error[i] = cv.glm(dat1, fit)$delta[1]
+}
+```
+
+```{r}
+list = c(5,6,7,8)
+model = data.frame('df'=list)
+error = NA
+
+for (i in 1:4){
+  for (j in 1:nrow(dat1)){
+    fit = glm(fev ~ ns(height, df=list[i]), data=dat1[-j,])
+    pred = predict(fit, dat1[j,])
+    error[j] = (pred - dat1$fev[j])^2
+  }
+  model[i,'MSE'] = mean(error)
+}
+
+ns_fit = glm(fev ~ ns(height, df=model$df[which.min(model$MSE)]), data=dat1)
+ns_pred = predict(ns_fit)
+ns_dat = data.frame(height = dat1$height, ns_pred)
+ns_dat = ns_dat[order(ns_dat$height),]
+
+model
+```
+
+Based of the LOOCV used above, we would choose `r model$df[which.min(model$MSE)]` degrees of freedom for this natural cubic spline.
+
+<br>
+
+### (c)   Fit a smoothing spline to predict FEV using height. Use LOOCV to choose the value of the smoothing parameter. Note: you will probably get a warning here - you can ignore this warning.
+
+```{r warning=FALSE}
+smooth_fit = smooth.spline(dat1$height, dat1$fev, cv=TRUE)
+smooth_pred = predict(smooth_fit)
+```
+
+<br>
+
+### (d)   Fit a local regression using span of 0.8 to predict FEV using height.
+
+```{r}
+loreg_fit = loess(fev ~ height, data=dat1, span=0.8)
+loreg_pred = predict(loreg_fit)
+loreg_dat = data.frame(height=dat1$height, loreg_pred)
+loreg_dat <- loreg_dat[order(loreg_dat$height), ]
+```
+
+<br>
+
+### (e)   Add the resulting fits from parts (b) - (d) to your plot from part (a). You only need to plot the best model from part (b).
+
+```{r fig.height=8, fig.width=10}
+plot(dat1$height, dat1$fev, xlab='Height', ylab='FEV', pch=20)
+
+# Add Natural Spline with 7 degrees of freedom
+lines(ns_dat$height, ns_dat$ns_pred, type = "l", col = "red", lwd = 3)
+
+# Add Smooth Spline
+lines(smooth_pred$x, smooth_pred$y, type = "l", col = "blue", lwd = 3)
+
+# Add Local Regression with span of 0.8
+lines(loreg_dat$height, loreg_dat$loreg_pred, type = "l", col = "green", lwd = 3)
+
+legend('topleft', 
+       legend=c('Natural Spline (df=7)','Smooth Spline','Local Regression'),
+       col=c('red','blue','green'),
+       lwd = 3)
+```
+
+<br>
+
+### (f)   Create a training and test set and repeat parts (b) - (d) on the training data. Which model produces the lowest test MSE?
+
+```{r warning=FALSE}
+set.seed(1)
+train = sample(1:nrow(dat1), 0.8*nrow(dat1))
+train_dat1 = dat1[train,]
+test_dat1 = dat1[-train,]
+
+# Natural Spline
+list = c(5,6,7,8)
+model = data.frame('df'=list)
+error = NA
+
+for (i in 1:4){
+  for (j in 1:nrow(train_dat1)){
+    fit = glm(fev ~ ns(height, df=list[i]), data=train_dat1[-j,])
+    pred = predict(fit, train_dat1[j,])
+    error[j] = (pred - train_dat1$fev[j])^2
+  }
+  model[i,'MSE'] = mean(error)
+}
+
+ns_fit = glm(fev ~ ns(height, df=model$df[which.min(model$MSE)]), data=train_dat1)
+ns_pred = predict(ns_fit, test_dat1)
+Models = data.frame(
+  Models = c(paste('Natural Spline (df=',model$df[which.min(model$MSE)],')',sep=''),
+           'Smooth Spline',
+           'Local Regression'
+           )
+  )
+Models[1,'Test Error'] = mean((test_dat1$fev - ns_pred)^2)
+
+# Smooth Spline
+smooth_fit = smooth.spline(train_dat1$height, train_dat1$fev, cv=TRUE)
+smooth_pred = predict(smooth_fit, test_dat1$height)
+Models[2,'Test Error'] = mean((test_dat1$fev - smooth_pred$y)^2)
+
+# Local Regression on span of 0.8
+loreg_fit = loess(fev ~ height, data=train_dat1, span=0.8)
+loreg_pred = predict(loreg_fit, test_dat1)
+Models[3,'Test Error'] = mean((test_dat1$fev - loreg_pred)^2)
+
+Models
+```
+
+Out of these 3 models, Local Regression had the lowest MSE. 
+
+<br><br><br>
+
+***
+
+# Question 2: Chapter 7 Exercise 9 parts (d)-(f) only
+
+This question uses the variables **dis** (the weighted mean of distances to five Boston employment centers) and **nox** (nitrogen oxides concentration in parts per 10 million) from the *Boston* data. We will treat **dis** as the predictor and **nox** as the response.
+
+### (d)   Use the ***bs()*** function to fit a regression spline to predict **nox** using **dis**. Report the output for the fit using four degrees of freedom. How did you choose the knots? Plot the resulting fit.
+
+```{r fig.height=8, fig.width=10}
+dat2 = Boston
+
+fit2 = glm(nox ~ bs(dis, df=4), data=dat2)
+pred2=predict(fit2)
+
+pred_dat = data.frame(dis=dat2$dis, pred2)
+pred_dat = pred_dat[order(pred_dat$dis),]
+
+plot(dat2$dis, dat2$nox, xlab='dis', ylab='nox')
+lines(pred_dat$dis, pred_dat$pred2, type='l', col='red', lwd=3)
+```
+
+I did not choose the knots. Using the 4 degrees of freedom, r chose the following knots: `r attr(bs(dat2$dis, df = 4), "knots")`. This doesn't include the boundary knots that are defined as the range of the non-NA data.
+
+<br>
+
+### (e)   Now fit the regression spline for a range of degrees of freedom, and plot the resulting fits and report the resulting RSS. Describe the results obtained.
+
+```{r fig.height=8, fig.width=10}
+plot(dat2$dis, dat2$nox, xlab='dis', ylab='nox')
+model = data.frame(df=c(3:9))
+
+for (i in 3:9){
+  fit = glm(nox ~ bs(dis, df=i), data=dat2)
+  pred = predict(fit)
+  
+  plot_dat = data.frame(dis=dat2$dis, pred)
+  plot_dat = plot_dat[order(plot_dat$dis),]
+  
+  lines(plot_dat$dis, plot_dat$pred, type='l', col=i, lwd=3)
+  
+  model[i-2,'RSS'] = sum((pred - dat2$nox)^2)
+}
+
+legend('topright',
+       legend=c(3:9),
+       col=c(3:9),
+       lwd=3,
+       title='Degrees of Freedom')
+
+model
+```
+
+From the RSS scores it looks like 8 degrees of freedom is the best. I noticed that 10 degrees of freedom has a lower RSS, but the plot looks to be over fitting more so than the others.
+
+<br>
+
+### (f)   Perform cross-validation or another approach in order to select the best degrees of freedom for a regression spline in this data. Describe your results.
+
+```{r warning=FALSE}
+model = data.frame(df=c(3:20))
+error = NA
+
+for (i in 3:20){
+  for (j in 1:nrow(dat2)){
+    fit = glm(nox ~ bs(dis, df=i), data=dat2[-j,])
+    pred = predict(fit, dat2[j,])
+    
+    error[j] = (pred - dat2$nox[j])^2
+  }
+  
+  model[i-2,'MSE'] = mean(error)
+}
+
+model
+
+model[which.min(model$MSE),]
+```
+
+I'm not sure what the difference between this question and the previous question, but I extended the amount of numbers tested. I found the 10 degrees of freedom has the smallest MSE. 
+
+<br><br><br>
+
+***
+
+# Question 3: Chapter 7 Exercise 3
+
+### Suppose we fit a curve with basis functions $b_1(X)=X, b_2(X)=(X-1)^2I(X\ge1)$. (Note that $I(X\ge1)$ equals 1 for $X\ge1$ and 0 otherwise.) We fit the linear regression model $$Y=\beta_0+\beta_1b_1(X)+\beta_2b_2(X)+\epsilon$$, and obtain coefficient estimates $\hat{\beta_0}=1, \hat{\beta_1}=1, \hat{\beta_2}=-2$. Note the intercepts, slopes, and other relevant information 
+
+<br>
+
+For both of the basis functions the intercept is at (0,0), but for $Y$ the intercept is at (-1,0). The slope of $b_1$ is 1, the slope of $b_2$ is 0 for $x<1$ and when $x\ge1$ it is a positive parabola. For $Y$ the slope is 1 for $x<1$, and when $x\ge1$ it is a negative parabola. The reason we go from a positive parabola in $b_2$ to a negative parabola in $Y$ is $\hat{\beta_2}=-2$.
